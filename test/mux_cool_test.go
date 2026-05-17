@@ -53,6 +53,9 @@ func TestMuxCoolServer(t *testing.T) {
 							UUID: userId.String(),
 						},
 					},
+					Multiplex: &option.InboundMultiplexOptions{
+						Enabled: true,
+					},
 				},
 			},
 		},
@@ -104,6 +107,10 @@ func TestMuxCoolClient(t *testing.T) {
 					},
 					UUID:           user.String(),
 					PacketEncoding: "xudp",
+					Multiplex: &option.OutboundMultiplexOptions{
+						Enabled:  true,
+						Protocol: "mux.cool",
+					},
 				},
 			},
 		},
@@ -138,6 +145,9 @@ func TestMuxCoolSelf(t *testing.T) {
 							UUID: user.String(),
 						},
 					},
+					Multiplex: &option.InboundMultiplexOptions{
+						Enabled: true,
+					},
 				},
 			},
 		},
@@ -155,6 +165,10 @@ func TestMuxCoolSelf(t *testing.T) {
 					},
 					UUID:           user.String(),
 					PacketEncoding: "xudp",
+					Multiplex: &option.OutboundMultiplexOptions{
+						Enabled:  true,
+						Protocol: "mux.cool",
+					},
 				},
 			},
 		},

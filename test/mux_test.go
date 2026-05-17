@@ -17,6 +17,7 @@ var muxProtocols = []string{
 	"h2mux",
 	"smux",
 	"yamux",
+	"mux.cool",
 }
 
 func TestVMessSMux(t *testing.T) {

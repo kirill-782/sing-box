@@ -177,6 +177,37 @@ func (h *vmessDialer) DialContext(ctx context.Context, network string, destinati
 	}
 }
 
+func (h *vmessDialer) DialMuxContext(ctx context.Context) (net.Conn, error) {
+	ctx, metadata := adapter.ExtendContext(ctx)
+	metadata.Outbound = h.Tag()
+	metadata.Destination = vmess.MuxDestination
+	var conn net.Conn
+	var err error
+	if h.transport != nil {
+		conn, err = h.transport.DialContext(ctx)
+	} else if h.tlsDialer != nil {
+		conn, err = h.tlsDialer.DialTLSContext(ctx, h.serverAddr)
+	} else {
+		conn, err = h.dialer.DialContext(ctx, N.NetworkTCP, h.serverAddr)
+	}
+	if err != nil {
+		common.Close(conn)
+		return nil, err
+	}
+	muxConn := h.client.DialEarlyXUDPPacketConn(conn, vmess.MuxDestination)
+	upstream, loaded := muxConn.(common.WithUpstream)
+	if !loaded {
+		common.Close(muxConn)
+		return nil, E.New("vmess: mux connection wrapper unavailable")
+	}
+	rawConn, loaded := upstream.Upstream().(net.Conn)
+	if !loaded {
+		common.Close(muxConn)
+		return nil, E.New("vmess: mux connection unavailable")
+	}
+	return rawConn, nil
+}
+
 func (h *vmessDialer) ListenPacket(ctx context.Context, destination M.Socksaddr) (net.PacketConn, error) {
 	ctx, metadata := adapter.ExtendContext(ctx)
 	metadata.Outbound = h.Tag()
