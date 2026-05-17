@@ -521,6 +521,8 @@ func (r *RuleActionSniff) build() error {
 			r.StreamSniffers = append(r.StreamSniffers, sniff.RDP)
 		case C.ProtocolNTP:
 			r.PacketSniffers = append(r.PacketSniffers, sniff.NTP)
+		case C.ProtocolWarcraft3:
+			r.StreamSniffers = append(r.StreamSniffers, sniff.Warcraft3)
 		default:
 			return E.New("unknown sniffer: ", name)
 		}

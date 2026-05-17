@@ -11,6 +11,7 @@ const (
 	ProtocolSSH        = "ssh"
 	ProtocolRDP        = "rdp"
 	ProtocolNTP        = "ntp"
+	ProtocolWarcraft3  = "warcraft3"
 )
 
 const (

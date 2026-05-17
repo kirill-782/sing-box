@@ -619,6 +619,7 @@ func (r *Router) actionSniff(
 				sniff.HTTPHost,
 				sniff.StreamDomainNameQuery,
 				sniff.BitTorrent,
+				sniff.Warcraft3,
 				sniff.SSH,
 				sniff.RDP,
 			}

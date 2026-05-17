@@ -23,6 +23,7 @@ If enabled in the inbound, the protocol and domain name (if present) of by the c
 |   TCP   |    `ssh`     |      /      | SSH Client Name  |
 |   TCP   |    `rdp`     |      /      |        /         |
 |   UDP   |    `ntp`     |      /      |        /         |
+|   TCP   | `warcraft3`  |      /      |        /         |
 
 |       QUIC Client        |    Type    |
 |:------------------------:|:----------:|
