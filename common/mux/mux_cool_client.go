@@ -102,7 +102,7 @@ func (c *muxCoolClient) Close() error {
 	sessions := c.sessions
 	c.sessions = nil
 	c.access.Unlock()
-	return common.Close(common.Map(sessions, func(it *muxCoolSession) io.Closer {
+	return common.Close(common.Map(sessions, func(it *muxCoolSession) any {
 		return it
 	})...)
 }
