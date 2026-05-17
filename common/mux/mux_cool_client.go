@@ -563,9 +563,11 @@ type muxCoolPacketConn struct {
 	closeErr    error
 }
 
-var _ net.PacketConn = (*muxCoolPacketConn)(nil)
-var _ net.Conn = (*muxCoolPacketConn)(nil)
-var _ N.NetPacketConn = (*muxCoolPacketConn)(nil)
+var (
+	_ net.PacketConn  = (*muxCoolPacketConn)(nil)
+	_ net.Conn        = (*muxCoolPacketConn)(nil)
+	_ N.NetPacketConn = (*muxCoolPacketConn)(nil)
+)
 
 func (c *muxCoolPacketConn) Read(p []byte) (int, error) {
 	n, _, err := c.ReadFrom(p)
@@ -584,7 +586,7 @@ func (c *muxCoolPacketConn) ReadFrom(p []byte) (n int, addr net.Addr, err error)
 		return
 	}
 	n = buffer.Len()
-	if destination.IsFqdn() {
+	if destination.IsDomain() {
 		addr = destination
 	} else {
 		addr = destination.UDPAddr()

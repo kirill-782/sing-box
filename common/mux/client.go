@@ -23,8 +23,10 @@ type Client struct {
 	cool *muxCoolClient
 }
 
-var _ N.Dialer = (*Client)(nil)
-var _ io.Closer = (*Client)(nil)
+var (
+	_ N.Dialer  = (*Client)(nil)
+	_ io.Closer = (*Client)(nil)
+)
 
 func NewClientWithOptions(dialer N.Dialer, logger logger.Logger, options option.OutboundMultiplexOptions) (*Client, error) {
 	if !options.Enabled {

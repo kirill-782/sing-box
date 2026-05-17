@@ -57,14 +57,15 @@ func NewRouterWithOptions(router adapter.ConnectionRouterEx, logger logger.Conte
 
 // Deprecated: Use RouteConnectionEx instead.
 func (r *Router) RouteConnection(ctx context.Context, conn net.Conn, metadata adapter.InboundContext) error {
-	if metadata.Destination == sing_mux.Destination {
+	switch metadata.Destination {
+	case sing_mux.Destination:
 		// TODO: check if WithContext is necessary
 		return r.service.NewConnection(adapter.WithContext(ctx, &metadata), conn, adapter.UpstreamMetadata(metadata))
-	} else if metadata.Destination == vmess.MuxDestination {
+	case vmess.MuxDestination:
 		r.logger.InfoContext(ctx, "inbound Mux.Cool connection")
 		metadata.Domain = metadata.Destination.Fqdn
 		return vmess.HandleMuxConnection(adapter.WithContext(ctx, &metadata), conn, metadata.Source, adapter.NewRouteContextHandler(r.router))
-	} else {
+	default:
 		return r.router.RouteConnection(ctx, conn, metadata)
 	}
 }
@@ -75,11 +76,11 @@ func (r *Router) RoutePacketConnection(ctx context.Context, conn N.PacketConn, m
 }
 
 func (r *Router) RouteConnectionEx(ctx context.Context, conn net.Conn, metadata adapter.InboundContext, onClose N.CloseHandlerFunc) {
-	if metadata.Destination == sing_mux.Destination {
+	switch metadata.Destination {
+	case sing_mux.Destination:
 		r.service.NewConnectionEx(adapter.WithContext(ctx, &metadata), conn, metadata.Source, metadata.Destination, onClose)
 		return
-	}
-	if metadata.Destination == vmess.MuxDestination {
+	case vmess.MuxDestination:
 		r.logger.InfoContext(ctx, "inbound Mux.Cool connection")
 		metadata.Domain = metadata.Destination.Fqdn
 		err := vmess.HandleMuxConnection(adapter.WithContext(ctx, &metadata), conn, metadata.Source, adapter.NewRouteContextHandler(r.router))
@@ -91,8 +92,9 @@ func (r *Router) RouteConnectionEx(ctx context.Context, conn net.Conn, metadata 
 			onClose(err)
 		}
 		return
+	default:
+		r.router.RouteConnectionEx(ctx, conn, metadata, onClose)
 	}
-	r.router.RouteConnectionEx(ctx, conn, metadata, onClose)
 }
 
 func (r *Router) RoutePacketConnectionEx(ctx context.Context, conn N.PacketConn, metadata adapter.InboundContext, onClose N.CloseHandlerFunc) {
