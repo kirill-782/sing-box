@@ -40,6 +40,7 @@ type Outbound struct {
 	dialer         dialer.ParallelInterfaceDialer
 	domainStrategy C.DomainStrategy
 	fallbackDelay  time.Duration
+	proxyProtocol  uint8
 	isEmpty        bool
 }
 
@@ -47,6 +48,9 @@ func NewOutbound(ctx context.Context, router adapter.Router, logger log.ContextL
 	options.UDPFragmentDefault = true
 	if options.Detour != "" {
 		return nil, E.New("`detour` is not supported in direct context")
+	}
+	if options.ProxyProtocol > 2 {
+		return nil, E.New("invalid proxy protocol version: ", options.ProxyProtocol)
 	}
 	outboundDialer, err := dialer.NewWithOptions(dialer.Options{
 		Context:        ctx,
@@ -64,12 +68,9 @@ func NewOutbound(ctx context.Context, router adapter.Router, logger log.ContextL
 		//nolint:staticcheck
 		domainStrategy: C.DomainStrategy(options.DomainStrategy),
 		fallbackDelay:  time.Duration(options.FallbackDelay),
+		proxyProtocol:  options.ProxyProtocol,
 		dialer:         outboundDialer.(dialer.ParallelInterfaceDialer),
-		isEmpty:        reflect.DeepEqual(options.DialerOptions, option.DialerOptions{UDPFragmentDefault: true}),
-	}
-	//nolint:staticcheck
-	if options.ProxyProtocol != 0 {
-		return nil, E.New("Proxy Protocol is deprecated and removed in sing-box 1.6.0")
+		isEmpty:        options.ProxyProtocol == 0 && reflect.DeepEqual(options.DialerOptions, option.DialerOptions{UDPFragmentDefault: true}),
 	}
 	return outbound, nil
 }
@@ -85,7 +86,11 @@ func (h *Outbound) DialContext(ctx context.Context, network string, destination 
 	case N.NetworkUDP:
 		h.logger.InfoContext(ctx, "outbound packet connection to ", destination)
 	}
-	return h.dialer.DialContext(ctx, network, destination)
+	conn, err := h.dialer.DialContext(ctx, network, destination)
+	if err != nil {
+		return nil, err
+	}
+	return h.writeProxyProtocolHeader(ctx, network, conn, destination)
 }
 
 func (h *Outbound) ListenPacket(ctx context.Context, destination M.Socksaddr) (net.PacketConn, error) {
@@ -121,7 +126,11 @@ func (h *Outbound) DialParallel(ctx context.Context, network string, destination
 	case N.NetworkUDP:
 		h.logger.InfoContext(ctx, "outbound packet connection to ", destination)
 	}
-	return dialer.DialParallelNetwork(ctx, h.dialer, network, destination, destinationAddresses, len(destinationAddresses) > 0 && destinationAddresses[0].Is6(), nil, nil, nil, h.fallbackDelay)
+	conn, err := dialer.DialParallelNetwork(ctx, h.dialer, network, destination, destinationAddresses, len(destinationAddresses) > 0 && destinationAddresses[0].Is6(), nil, nil, nil, h.fallbackDelay)
+	if err != nil {
+		return nil, err
+	}
+	return h.writeProxyProtocolHeader(ctx, network, conn, destination)
 }
 
 func (h *Outbound) DialParallelNetwork(ctx context.Context, network string, destination M.Socksaddr, destinationAddresses []netip.Addr, networkStrategy *C.NetworkStrategy, networkType []C.InterfaceType, fallbackNetworkType []C.InterfaceType, fallbackDelay time.Duration) (net.Conn, error) {
@@ -135,7 +144,11 @@ func (h *Outbound) DialParallelNetwork(ctx context.Context, network string, dest
 	case N.NetworkUDP:
 		h.logger.InfoContext(ctx, "outbound packet connection to ", destination)
 	}
-	return dialer.DialParallelNetwork(ctx, h.dialer, network, destination, destinationAddresses, len(destinationAddresses) > 0 && destinationAddresses[0].Is6(), networkStrategy, networkType, fallbackNetworkType, fallbackDelay)
+	conn, err := dialer.DialParallelNetwork(ctx, h.dialer, network, destination, destinationAddresses, len(destinationAddresses) > 0 && destinationAddresses[0].Is6(), networkStrategy, networkType, fallbackNetworkType, fallbackDelay)
+	if err != nil {
+		return nil, err
+	}
+	return h.writeProxyProtocolHeader(ctx, network, conn, destination)
 }
 
 func (h *Outbound) ListenSerialNetworkPacket(ctx context.Context, destination M.Socksaddr, destinationAddresses []netip.Addr, networkStrategy *C.NetworkStrategy, networkType []C.InterfaceType, fallbackNetworkType []C.InterfaceType, fallbackDelay time.Duration) (net.PacketConn, netip.Addr, error) {
@@ -152,4 +165,27 @@ func (h *Outbound) ListenSerialNetworkPacket(ctx context.Context, destination M.
 
 func (h *Outbound) IsEmpty() bool {
 	return h.isEmpty
+}
+
+func (h *Outbound) writeProxyProtocolHeader(ctx context.Context, network string, conn net.Conn, destination M.Socksaddr) (net.Conn, error) {
+	if h.proxyProtocol == 0 || N.NetworkName(network) != N.NetworkTCP {
+		return conn, nil
+	}
+	var source M.Socksaddr
+	if metadata := adapter.ContextFrom(ctx); metadata != nil {
+		source = metadata.Source
+	}
+	if !source.IsValid() {
+		source = M.SocksaddrFromNet(conn.LocalAddr()).Unwrap()
+	}
+	proxyDestination := M.SocksaddrFromNet(conn.RemoteAddr()).Unwrap()
+	if !proxyDestination.IsValid() {
+		proxyDestination = destination.Unwrap()
+	}
+	err := writeProxyProtocolHeaderTo(conn, h.proxyProtocol, source, proxyDestination)
+	if err != nil {
+		conn.Close()
+		return nil, E.Cause(err, "write proxy protocol header")
+	}
+	return conn, nil
 }

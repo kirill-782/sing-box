@@ -18,6 +18,7 @@ icon: material/alert-decagram
   
   "override_address": "1.0.0.1",
   "override_port": 53,
+  "proxy_protocol": 0,
   
   ... // Dial Fields
 }
@@ -41,7 +42,17 @@ Override the connection destination address.
 
 Override the connection destination port.
 
-Protocol value can be `1` or `2`.
+#### proxy_protocol
+
+Write a PROXY protocol header to outbound TCP connections.
+
+`proxyProtocol` is also accepted as an Xray-compatible alias.
+
+Available values:
+
+- `0`: disabled
+- `1`: PROXY protocol version 1
+- `2`: PROXY protocol version 2
 
 ### Dial Fields
 
